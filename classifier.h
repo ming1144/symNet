@@ -23,6 +23,10 @@ public:
 		const string& mean_file,
 		const string& label_file);
 
+	Classifier(const string& model_file,
+		const string& trained_file,
+		const string& label_file);
+
 	std::vector<Prediction> Classify(const cv::Mat& img, int N = 5);
 
 private:
@@ -40,5 +44,6 @@ private:
 	cv::Size input_geometry_;
 	int num_channels_;
 	cv::Mat mean_;
+	bool useMean;
 	std::vector<string> labels_;
 };

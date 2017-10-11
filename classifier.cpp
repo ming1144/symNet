@@ -29,6 +29,7 @@ Classifier::Classifier(const string& model_file,
 
 	/* Load the binaryproto mean file. */
 	SetMean(mean_file);
+	useMean = true;
 
 	/* Load labels. */
 	std::ifstream labels(label_file.c_str());
@@ -41,6 +42,44 @@ Classifier::Classifier(const string& model_file,
 	CHECK_EQ(labels_.size(), output_layer->channels())
 		<< "Number of labels is different from the output layer dimension.";
 }
+
+Classifier::Classifier(const string& model_file,
+	const string& trained_file,
+	const string& label_file) {
+#ifdef CPU_ONLY
+	Caffe::set_mode(Caffe::CPU);
+#else
+	Caffe::set_mode(Caffe::GPU);
+#endif
+	//std::cout << model_file << std::endl << trained_file << std::endl;
+	/* Load the network. */
+	net_.reset(new Net<float>(model_file, TEST));
+	net_->CopyTrainedLayersFrom(trained_file);
+
+	CHECK_EQ(net_->num_inputs(), 1) << "Network should have exactly one input.";
+	CHECK_EQ(net_->num_outputs(), 1) << "Network should have exactly one output.";
+
+	Blob<float>* input_layer = net_->input_blobs()[0];
+	num_channels_ = input_layer->channels();
+
+	CHECK(num_channels_ == 3 || num_channels_ == 1)
+		<< "Input layer should have 1 or 3 channels.";
+	input_geometry_ = cv::Size(input_layer->width(), input_layer->height());
+
+	useMean = false;
+
+	/* Load labels. */
+	std::ifstream labels(label_file.c_str());
+	CHECK(labels) << "Unable to open labels file " << label_file;
+	string line;
+	while (std::getline(labels, line))
+		labels_.push_back(string(line));
+
+	Blob<float>* output_layer = net_->output_blobs()[0];
+	CHECK_EQ(labels_.size(), output_layer->channels())
+		<< "Number of labels is different from the output layer dimension.";
+}
+
 
 
 static bool PairCompare(const std::pair<float, int>& lhs,
@@ -176,7 +215,10 @@ void Classifier::Preprocess(const cv::Mat& img,
 		sample_resized.convertTo(sample_float, CV_32FC1);
 
 	cv::Mat sample_normalized;
-	cv::subtract(sample_float, mean_, sample_normalized);
+	if (useMean)
+		cv::subtract(sample_float, mean_, sample_normalized);
+	else
+		sample_normalized = sample_float;
 
 	/* This operation will write the separate BGR planes directly to the
 	* input layer of the network because it is wrapped by the cv::Mat
