@@ -1,4 +1,5 @@
 #include "classifier.h"
+#include "extracter.h"
 #include "register.h"
 #include "imageTransform.h"
 
@@ -27,20 +28,24 @@ using namespace cv;
 int main()
 {
 	int m;
-	
+
 	_chdir("SymNet");
+	_chdir("MatchNet");
 
-	string modelFolder = "2channel";
+	string modelFolder = "models";
 
-	string trained_filename = modelFolder + "/deploy.prototxt";
-	string model_filename = modelFolder + "/model.caffemodel";
-	string label_filename = modelFolder + "/labels.txt";
+	string trained_filename = modelFolder + "/feature_net.pbtxt";
+	string model_filename = modelFolder + "/liberty_r_0.01_m_0.feature_net.pb";
 
-	Classifier classifier(trained_filename, model_filename, label_filename);
+	string output_filename = "bmp.csv";
+
+	Extracter extracter(trained_filename, model_filename, output_filename);
+
+	string imageFolder = "resize_bmp";
 
 	struct dirent *drnt;
 	DIR *dr;
-	dr = opendir("car");
+	dr = opendir(imageFolder.c_str());
 	vector<string> testImages;
 	while (drnt = readdir(dr))
 	{
@@ -51,22 +56,15 @@ int main()
 		}
 	}
 
-	std::ofstream output;
-	output.open(modelFolder + ".csv");
+	_chdir(imageFolder.c_str());
 
-//#pragma omp parallel for
 	for (m = 0; m < testImages.size(); m++)
 	{
 		std::cout << m + 1 << "/" << testImages.size() << std::endl;
 
-
-		Mat testImg = cv::imread("car/"+testImages[m]);
-
-		vector<Prediction> prediction = classifier.Classify(testImg);		
-
- 		output << testImages[m] << "," << prediction[0].second << "," << prediction[1].second << std::endl;
+		extracter.featureExtract(testImages[m]);
 	}
-	
+
 
 	return 0;
 }

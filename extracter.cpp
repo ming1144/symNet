@@ -34,13 +34,12 @@ Extracter::Extracter(const string& model_file,
 * don't need to rely on cudaMemcpy2D. The last preprocessing
 * operation will write the separate channels directly to the input
 * layer. */
-void Extracter::WrapInputLayer( std::vector<cv::Mat>* input_channels) {
+void Extracter::WrapInputLayer(std::vector<cv::Mat>* input_channels) {
 	Blob<float>* input_layer = net_->input_blobs()[0];
 
 	int width = input_layer->width();
 	int height = input_layer->height();
 	float* input_data = input_layer->mutable_cpu_data();
-
 	for (int i = 0; i < input_layer->channels(); ++i) {
 		cv::Mat channel(height, width, CV_32FC1, input_data);
 		input_channels->push_back(channel);
@@ -75,9 +74,9 @@ void Extracter::Preprocess(const cv::Mat& img,
 	else
 		sample_resized.convertTo(sample_float, CV_32FC1);
 
-	cv::Mat temp1(sample_float.rows,sample_float.cols, CV_32FC1);
-	
-	
+	cv::Mat temp1(sample_float.rows, sample_float.cols, CV_32FC1);
+
+
 
 	temp1 = cv::Scalar(128);
 
@@ -99,60 +98,33 @@ void Extracter::Preprocess(const cv::Mat& img,
 		<< "Input channels are not wrapping the input layer of the network.";
 }
 
-float** Extracter::featureExtract(const cv::Mat& img, const int patch_h, const int patch_w)
+void Extracter::featureExtract(const string& input_file)
 {
 	Blob<float>* input_layer = net_->input_blobs()[0];
-	input_layer->Reshape(1, num_channels_, 
+	input_layer->Reshape(1, num_channels_,
 		input_geometry_.height, input_geometry_.width);
 	/* Forward dimension change to all layers. */
 	net_->Reshape();
 
+	cv::Mat img = cv::imread(input_file);
+
 	std::vector<cv::Mat> input_channels;
 	WrapInputLayer(&input_channels);
 
-	Blob<float>* output_layer = net_->output_blobs()[0];
-	
 	Preprocess(img, &input_channels);
 
+	net_->Forward();
 
-	float** features;
-	features = new float*[patch_h*patch_w];
-	for (int i = 0; i < patch_h*patch_w; i++)
+	output << input_file;
+
+	Blob<float>* output_layer = net_->output_blobs()[0];
+
+	const float* p_output = output_layer->cpu_data();
+
+	for (int i = 0; i < 64 * 64; i++, p_output++)
 	{
-		features[i] = new float[input_geometry_.height * input_geometry_.width];
+		output << "," << *p_output;
 	}
 
-	int width = img.cols / patch_w;
-	int height = img.rows / patch_h;
-
-	std::ofstream output("test.csv");
-
-	for (int h = 0; h < patch_h; h++)
-	{
-		for (int w = 0; w < patch_w; w++)
-		{
-			cv::Rect ROI(0 + w*width, 0 + h*height, width, height);
-			cv::Mat patch = img(ROI);
-
-			Preprocess(patch, &input_channels);
-
-			net_->Forward();
-			/*cv::resize(patch, patch, cv::Size(500, 500));
-			cv::imshow("patch", patch);
-			cv::waitKey(5);*/
-
-			const float* p_output = output_layer->cpu_data();
-
-			for (int m = 0; m < input_geometry_.height * input_geometry_.width; m++)
-			{
-				features[h*patch_h+w][m] = p_output[m];
-				output << p_output[m] << ",";
-			}
-			output << std::endl;
-		}
-	}
-	
-	
-
-	return features;
+	output << std::endl;
 }

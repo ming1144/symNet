@@ -20,7 +20,7 @@ public:
 		const string& trained_file,
 		const string& output_file);
 
-	float** featureExtract(const cv::Mat& img, const int patch_h = 4, const int patch_w = 8);
+	void featureExtract(const string& input_file);
 
 private:
 	void WrapInputLayer(std::vector<cv::Mat>* input_channels);
