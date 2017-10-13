@@ -68,6 +68,11 @@ void Extracter::Preprocess(const cv::Mat& img,
 	else
 		sample_resized = sample;
 
+	//cv::imshow("test", sample_resized);
+	//cv::waitKey(0);
+
+
+
 	cv::Mat sample_float;
 	if (num_channels_ == 3)
 		sample_resized.convertTo(sample_float, CV_32FC3);
@@ -111,13 +116,13 @@ void Extracter::featureExtract(const string& input_file)
 	std::vector<cv::Mat> input_channels;
 	WrapInputLayer(&input_channels);
 
+	Blob<float>* output_layer = net_->output_blobs()[0];
+
 	Preprocess(img, &input_channels);
 
 	net_->Forward();
 
 	output << input_file;
-
-	Blob<float>* output_layer = net_->output_blobs()[0];
 
 	const float* p_output = output_layer->cpu_data();
 
@@ -126,5 +131,60 @@ void Extracter::featureExtract(const string& input_file)
 		output << "," << *p_output;
 	}
 
+
 	output << std::endl;
+}
+
+void Extracter::featureExtract(const cv::Mat& img)
+{
+	Blob<float>* input_layer = net_->input_blobs()[0];
+	input_layer->Reshape(1, num_channels_,
+		input_geometry_.height, input_geometry_.width);
+	/* Forward dimension change to all layers. */
+	net_->Reshape();
+
+
+	std::vector<cv::Mat> input_channels;
+	WrapInputLayer(&input_channels);
+
+	Blob<float>* output_layer = net_->output_blobs()[0];
+
+	Preprocess(img, &input_channels);
+
+	net_->Forward();
+
+	const float* p_output = output_layer->cpu_data();
+
+	for (int i = 0; i < 64 * 64; i++, p_output++)
+	{
+	output << "," << *p_output;
+	}
+
+	output << std::endl;
+}
+
+void Extracter::featureExtract(const cv::Mat& img, float* features)
+{
+	Blob<float>* input_layer = net_->input_blobs()[0];
+	input_layer->Reshape(1, num_channels_,
+		input_geometry_.height, input_geometry_.width);
+	/* Forward dimension change to all layers. */
+	net_->Reshape();
+
+
+	std::vector<cv::Mat> input_channels;
+	WrapInputLayer(&input_channels);
+
+	Blob<float>* output_layer = net_->output_blobs()[0];
+
+	Preprocess(img, &input_channels);
+
+	net_->Forward();
+
+	const float* p_output = output_layer->cpu_data();
+
+	for (int i = 0; i < 64 * 64; i++, p_output++, features++)
+	{
+		*features = *p_output;
+	}
 }

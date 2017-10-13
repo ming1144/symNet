@@ -21,6 +21,8 @@ public:
 		const string& output_file);
 
 	void featureExtract(const string& input_file);
+	void featureExtract(const cv::Mat& img);
+	void featureExtract(const cv::Mat& img, float* features);
 
 private:
 	void WrapInputLayer(std::vector<cv::Mat>* input_channels);
