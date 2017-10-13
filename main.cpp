@@ -36,14 +36,19 @@ int main()
 
 	string modelFolder = "models";
 
-	string trained_filename = modelFolder + "/feature_net.pbtxt";
-	string model_filename = modelFolder + "/liberty_r_0.01_m_0.feature_net.pb";
+	string feature_trained_filename = modelFolder + "/feature_net.pbtxt";
+	string feature_model_filename = modelFolder + "/liberty_r_0.01_m_0.feature_net.pb";
 
-	string output_filename = "symmetry.csv";
+	string classifier_trained_filename = modelFolder + "/classifier_net.pbtxt";
+	string classifier_model_filename = modelFolder + "/liberty_r_0.01_m_0.classifier_net.pb";
 
-	std::ofstream output(output_filename);
+	
+	Extracter extracter(feature_trained_filename, feature_model_filename);
+	Classifier classifier(classifier_trained_filename, classifier_model_filename);
 
-	Extracter extracter(trained_filename, model_filename, output_filename);
+	//string output_filename = "symmetry.csv";
+
+	//std::ofstream output(output_filename);
 
 	string imageFolder = "symmetry";
 
@@ -56,7 +61,6 @@ int main()
 		if (drnt->d_type == DT_REG)
 		{
 			testImages.push_back(drnt->d_name);
-
 		}
 	}
 
@@ -105,8 +109,9 @@ int main()
 			}
 		}
 
-
+		float temp = classifier.featureCompare(features[0], features_mirror[0]);
 		
+		float a;
 	}
 
 

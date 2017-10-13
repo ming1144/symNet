@@ -17,8 +17,7 @@ using caffe::Net;
 class Extracter {
 public:
 	Extracter(const string& model_file,
-		const string& trained_file,
-		const string& output_file);
+		const string& trained_file);
 
 	void featureExtract(const string& input_file);
 	void featureExtract(const cv::Mat& img);
@@ -32,7 +31,6 @@ private:
 private:
 	shared_ptr<Net<float> > net_;
 
-	std::ofstream output;
 	cv::Size input_geometry_;
 	int num_channels_;
 };

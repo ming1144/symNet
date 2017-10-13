@@ -4,8 +4,7 @@
 using namespace caffe;
 
 Extracter::Extracter(const string& model_file,
-	const string& trained_file,
-	const string& output_file)
+	const string& trained_file)
 {
 #ifdef CPU_ONLY
 	Caffe::set_mode(Caffe::CPU);
@@ -25,8 +24,6 @@ Extracter::Extracter(const string& model_file,
 	CHECK(num_channels_ == 3 || num_channels_ == 1)
 		<< "Input layer should have 1 or 3 channels.";
 	input_geometry_ = cv::Size(input_layer->width(), input_layer->height());
-
-	output.open(output_file);
 }
 
 /* Wrap the input layer of the network in separate cv::Mat objects
@@ -121,18 +118,6 @@ void Extracter::featureExtract(const string& input_file)
 	Preprocess(img, &input_channels);
 
 	net_->Forward();
-
-	output << input_file;
-
-	const float* p_output = output_layer->cpu_data();
-
-	for (int i = 0; i < 64 * 64; i++, p_output++)
-	{
-		output << "," << *p_output;
-	}
-
-
-	output << std::endl;
 }
 
 void Extracter::featureExtract(const cv::Mat& img)
@@ -154,13 +139,6 @@ void Extracter::featureExtract(const cv::Mat& img)
 	net_->Forward();
 
 	const float* p_output = output_layer->cpu_data();
-
-	for (int i = 0; i < 64 * 64; i++, p_output++)
-	{
-	output << "," << *p_output;
-	}
-
-	output << std::endl;
 }
 
 void Extracter::featureExtract(const cv::Mat& img, float* features)

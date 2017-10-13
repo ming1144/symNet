@@ -80,7 +80,29 @@ Classifier::Classifier(const string& model_file,
 		<< "Number of labels is different from the output layer dimension.";
 }
 
+Classifier::Classifier(const string& model_file,
+	const string& trained_file) {
+#ifdef CPU_ONLY
+	Caffe::set_mode(Caffe::CPU);
+#else
+	Caffe::set_mode(Caffe::GPU);
+#endif
+	//std::cout << model_file << std::endl << trained_file << std::endl;
+	/* Load the network. */
+	net_.reset(new Net<float>(model_file, TEST));
+	net_->CopyTrainedLayersFrom(trained_file);
 
+	CHECK_EQ(net_->num_inputs(), 1) << "Network should have exactly one input.";
+	CHECK_EQ(net_->num_outputs(), 1) << "Network should have exactly one output.";
+
+	Blob<float>* input_layer = net_->input_blobs()[0];
+	num_channels_ = input_layer->channels();
+
+	useMean = false;
+
+	useLabel = false;
+
+}
 
 static bool PairCompare(const std::pair<float, int>& lhs,
 	const std::pair<float, int>& rhs) {
@@ -112,6 +134,28 @@ std::vector<Prediction> Classifier::Classify(const cv::Mat& img, int N) {
 	}
 
 	return predictions;
+}
+
+float Classifier::featureCompare(float* feature1, float* feature2)
+{
+	Blob<float>* input_blob = net_->input_blobs()[0];
+
+	float* p_input = input_blob->mutable_cpu_data();
+
+	for (int i = 0; i < 4096; i++)
+	{
+		p_input[i] = feature1[i];
+		p_input[i + 4096] = feature2[i];
+	}
+
+	net_->Forward();
+
+	Blob<float>* output_blob = net_->output_blobs()[0];
+
+	const float* p_output = output_blob->cpu_data();
+
+	return p_output[1];
+
 }
 
 /* Load the mean file in binaryproto format. */
