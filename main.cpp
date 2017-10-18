@@ -27,6 +27,12 @@
 using namespace caffe;  // NOLINT(build/namespaces)
 using namespace cv;
 
+struct pairPatch{
+	int patchID;
+	int targetID;
+	float Score;
+};
+
 int main()
 {
 	int m;
@@ -42,15 +48,14 @@ int main()
 	string classifier_trained_filename = modelFolder + "/classifier_net.pbtxt";
 	string classifier_model_filename = modelFolder + "/liberty_r_0.01_m_0.classifier_net.pb";
 
-	
 	Extracter extracter(feature_trained_filename, feature_model_filename);
 	Classifier classifier(classifier_trained_filename, classifier_model_filename);
 
-	//string output_filename = "symmetry.csv";
+	string output_filename = "nonSymmetry.csv";
 
-	//std::ofstream output(output_filename);
+	std::ofstream output(output_filename);
 
-	string imageFolder = "symmetry";
+	string imageFolder = "nonSymmetry";
 
 	struct dirent *drnt;
 	DIR *dr;
@@ -68,7 +73,8 @@ int main()
 
 	int patch_w = 8;
 	int patch_h = 4;
-
+	int patchNum = patch_w * patch_h;
+	int pairNum = (patch_w + 1) * patch_w / 2;
 
 	for (m = 0; m < testImages.size(); m++)
 	{
@@ -79,22 +85,21 @@ int main()
 
 		flip(img, img_mirror, 1);
 
-		
-
 		int ROI_height = img.rows / patch_h;
 		int ROI_width = img.cols / patch_w;
 
 		float** features, **features_mirror;
 
-		features = new float*[patch_h*patch_w];
-		features_mirror = new float*[patch_h*patch_w];
+		features = new float*[patchNum];
+		features_mirror = new float*[patchNum];
 
-		for (int i = 0; i < patch_h*patch_w; i++)
+		for (int i = 0; i < patchNum; i++)
 		{
 			features[i] = new float[4096];
 			features_mirror[i] = new float[4096];
 		}
 
+		Point *patches = new Point[patchNum];
 
 		for (int i = 0; i < patch_h; i++)
 		{
@@ -104,14 +109,77 @@ int main()
 				Mat patch = img(ROI);
 				Mat patch_mirror = img_mirror(ROI);
 
+				patches[j + i*patch_h] = Point(ROI_width/2 + j*ROI_width, ROI_height/2 + i*ROI_height);
+
 				extracter.featureExtract(patch, features[i*patch_h + j]);
 				extracter.featureExtract(patch_mirror, features_mirror[i*patch_h + j]);
 			}
 		}
 
-		float temp = classifier.featureCompare(features[0], features_mirror[0]);
-		
-		float a;
+		float** score;
+
+		score = new float*[pairNum];
+
+		for (int i = 0; i < pairNum; i++)
+		{
+			score[i] = new float[patch_h];
+		}
+
+		output << testImages[m];
+
+		float* scoreSum;
+		scoreSum = new float[pairNum];
+		memset(scoreSum, 0, pairNum * sizeof(float));
+
+		for (int i = 0, n = 0; i < patch_w; i++)
+		{
+			for (int j = 0 ; j < patch_w - i; j++, n++)
+			{
+				for (int x = 0; x < patch_h; x++)
+				{
+					score[n][x] = classifier.featureCompare(features[j + x*patch_h], features_mirror[j + x*patch_h]);
+					scoreSum[n] += score[n][x];
+				}
+			}
+		}
+
+		/*for (int i = 0; i < pairNum; i++)
+		{
+			output << "," << scoreSum[i];
+		}
+
+		output << std::endl;*/
+
+		float threshold = 0.5;
+		struct pairPatch* pair;
+		pair = new struct pairPatch[patchNum];
+
+		for (int i = 0; i < pairNum; i++)
+		{
+			//pair[i].patchID = i % patch_w;
+			pair[i].targetID = -1;
+			pair[i].Score = threshold;
+		}
+
+		for (int i = 0; i < patch_h; i++)
+		{
+			int breakPoint = 0;
+			int n = 0;
+			for (int j = 0; j < patch_w; j++)
+			{
+				for (;n < breakPoint;n++)
+				{
+					if (score[n][i] < pair[i*patch_h + j].Score)
+					{
+						pair[i].targetID;
+						pair[i].Score = score[n][i];
+					}
+				}
+				breakPoint += patch_w - j;
+			}
+		}
+
+
 	}
 
 
