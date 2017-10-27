@@ -16,6 +16,7 @@ using caffe::Net;
 
 class Extracter {
 public:
+	Extracter();
 	Extracter(const string& model_file,
 		const string& trained_file);
 

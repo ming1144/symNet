@@ -18,6 +18,7 @@ using caffe::Net;
 
 class Classifier {
 public:
+	Classifier();
 	Classifier(const string& model_file,
 		const string& trained_file,
 		const string& mean_file,

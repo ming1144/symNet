@@ -1,9 +1,8 @@
 #define CPU_ONLY
 
-#include "classifier.h"
-#include "extracter.h"
 #include "register.h"
 #include "imageTransform.h"
+#include "symNet.h"
 
 #include <iostream>
 #include <fstream>
@@ -27,9 +26,10 @@
 using namespace caffe;  // NOLINT(build/namespaces)
 using namespace cv;
 
+
 int main()
 {
-	int m;
+	int i, j, m, p, x, y;
 
 	_chdir("SymNet");
 	_chdir("MatchNet");
@@ -42,79 +42,19 @@ int main()
 	string classifier_trained_filename = modelFolder + "/classifier_net.pbtxt";
 	string classifier_model_filename = modelFolder + "/liberty_r_0.01_m_0.classifier_net.pb";
 
-	Extracter extracter(feature_trained_filename, feature_model_filename);
-	Classifier classifier(classifier_trained_filename, classifier_model_filename);
+	symNet Net(feature_trained_filename, feature_model_filename, classifier_trained_filename, classifier_model_filename);
 
-	string imageFolder = "car_origin";
-	
-	string output_filename(imageFolder);
-	output_filename += ".csv";
+	_chdir("indoor");
+	string testFolder = "symmetry";
+	_chdir(testFolder.c_str());
 
-	std::ofstream output(output_filename);
+	string imageFolder = "image";
 
-	
+	string coordinate_filename = "symmeletCoordinate.csv";
 
-	struct dirent *drnt;
-	DIR *dr;
-	dr = opendir(imageFolder.c_str());
-	vector<string> testImages;
-	while (drnt = readdir(dr))
-	{
-		if (drnt->d_type == DT_REG)
-		{
-			testImages.push_back(drnt->d_name);
-		}
-	}
-
-	_chdir(imageFolder.c_str());
-
-	int patch_w = 4;
-	int patch_h = 2;
-	int patchNum = patch_w * patch_h;
-
-	for (m = 0; m < testImages.size(); m++)
-	{
-		std::cout << m + 1 << "/" << testImages.size() << std::endl;
-
-		Mat img = imread(testImages[m]);
-		Mat img_mirror;
-
-		flip(img, img_mirror, 1);
-
-		int ROI_height = img.rows / patch_h;
-		int ROI_width = img.cols / patch_w;
-
-		float** features, **features_mirror;
-
-		features = new float*[patchNum];
-		features_mirror = new float*[patchNum];
-
-		for (int i = 0; i < patchNum; i++)
-		{
-			features[i] = new float[4096];
-			features_mirror[i] = new float[4096];
-		}
-
-		float score = 0;
-
-		for (int i = 0; i < patch_h; i++)
-		{
-			for (int j = 0; j < patch_w; j++)
-			{
-				Rect ROI(0 + j*ROI_width, 0 + i*ROI_height, ROI_width, ROI_height);
-				Mat patch = img(ROI);
-				Mat patch_mirror = img_mirror(ROI);
-
-				extracter.featureExtract(patch, features[i*patch_h + j]);
-				extracter.featureExtract(patch_mirror, features_mirror[i*patch_h + j]);
-
-				score += classifier.featureCompare(features[i*patch_h + j], features_mirror[i*patch_h + j]);
-			}
-		}
-
-		output << testImages[m] << "," << score * 100 / patchNum << std::endl;
-	}
-
+	string rootFolder = ".";
+	//Net.slidingWindowDetect(rootFolder, imageFolder);
+	Net.symSURFDetect(rootFolder, coordinate_filename);
 
 	return 0;
 }

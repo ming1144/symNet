@@ -3,6 +3,8 @@
 
 using namespace caffe;
 
+Classifier::Classifier(){};
+
 Classifier::Classifier(const string& model_file,
 	const string& trained_file,
 	const string& mean_file,

@@ -3,6 +3,8 @@
 
 using namespace caffe;
 
+Extracter::Extracter(){};
+
 Extracter::Extracter(const string& model_file,
 	const string& trained_file)
 {
