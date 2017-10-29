@@ -53,8 +53,8 @@ int main()
 	string coordinate_filename = "symmeletCoordinate.csv";
 
 	string rootFolder = ".";
-	//Net.slidingWindowDetect(rootFolder, imageFolder);
-	Net.symSURFDetect(rootFolder, coordinate_filename);
+	Net.slidingWindowDetect(rootFolder, imageFolder);
+	//Net.symSURFDetect(rootFolder, coordinate_filename);
 
 	return 0;
 }

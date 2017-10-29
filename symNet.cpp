@@ -39,8 +39,10 @@ void symNet::symSURFDetect(string& root, string& file)
 
 	_mkdir("result");
 	_mkdir("result_ROI");
+	_mkdir("result_NMS");
 	for (int m = 0; m < list.size(); m++)
 	{
+		vector<struct bbox_t> boxScores;
 		int count = 1;
 		std::cout << m + 1 << "/" << list.size() << std::endl;
 
@@ -114,11 +116,38 @@ void symNet::symSURFDetect(string& root, string& file)
 			filename += ".png";
 			cv::imwrite("result_ROI/" + filename, interest);
 			
+			struct bbox_t temp;
+			temp.Point[0] = center.x - ROI_width / 2;
+			temp.Point[1] = center.y - ROI_height / 2;
+			temp.Point[2] = center.x + ROI_width / 2;
+			temp.Point[3] = center.y + ROI_height / 2;
+			temp.score = score;
+
+			boxScores.push_back(temp);
 		}
 
 		//output << testImages[m] << "," << score * 100 / patchNum << std::endl;
 		cv::imwrite("result/" + list[m].filename + ".png", drawedImg);
 		//output << std::endl;
+
+		boxScores = NMS_bbox(boxScores, 0.7);
+
+		cv::Mat img_NMS = img.clone();
+		for (int i = 0; i < boxScores.size(); i++)
+		{
+			const float *one_bbox_point = boxScores[i].Point;
+			/*float width = one_bbox_point[2] - one_bbox_point[0];
+			float height = one_bbox_point[3] - one_bbox_point[1];
+			float left_top_x = one_bbox_point[0];
+			float left_top_y = one_bbox_point[1];
+			Rect one_rect(left_top_x, left_top_x, width, height);*/
+
+			cv::rectangle(img_NMS, cv::Point(one_bbox_point[0], one_bbox_point[1]), cv::Point(one_bbox_point[2], one_bbox_point[3]), cv::Scalar(0, 0, 255), 1);
+
+			//rectangle(img, one_rect, Scalar(255, 0, 0), 2);
+		}
+
+		cv::imwrite("result_NMS/" + list[m].filename + ".png", img_NMS);
 	}
 }
 
@@ -179,13 +208,17 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 
 	_mkdir("result");
 	_mkdir("result_ROI");
+	_mkdir("result_NMS");
 	for (int m = 0; m < list.size(); m++)
 	{
+		vector<struct bbox_t> boxScores;
 		int count = 1;
 		std::cout << m + 1 << "/" << list.size() << std::endl;
 
 		cv::Mat img = cv::imread(root + "/" + folder + "/" + list[m].filename);
 		cv::Mat drawedImg = img.clone();
+
+		string filename = list[m].filename.substr(0, list[m].filename.size() - 4);
 		for (int y = 0; y < img.rows; y += step)
 		{
 			for (int x = 0; x < img.cols; x += step)
@@ -250,16 +283,43 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 				std::cout << score << std::endl;
 
 				cv::rectangle(drawedImg, ROI, cv::Scalar(0, 0, 255));
-				string filename = list[m].filename.substr(0, list[m].filename.size() - 4);
-				filename += "_";
-				filename += std::to_string(count++);
-				filename += ".bmp";
-				imwrite("result_ROI/" + filename, interest);
+				string filename_ROI = filename;
+				filename_ROI += "_";
+				filename_ROI += std::to_string(count++);
+				filename_ROI += ".png";
+				imwrite("result_ROI/" + filename_ROI, interest);
 
+				struct bbox_t temp;
+				temp.Point[0] = x - ROI_width / 2;
+				temp.Point[1] = y - ROI_height / 2;
+				temp.Point[2] = x + ROI_width / 2;
+				temp.Point[3] = y + ROI_height / 2;
+				temp.score = score;
+
+				boxScores.push_back(temp);
 			}
 		}
 
-		imwrite("result/" + list[m].filename + ".bmp", drawedImg);
+		imwrite("result/" + filename + ".png", drawedImg);
+
+		boxScores = NMS_bbox(boxScores, 0.7);
+
+		cv::Mat img_NMS = img.clone();
+		for (int i = 0; i < boxScores.size(); i++)
+		{
+			const float *one_bbox_point = boxScores[i].Point;
+			/*float width = one_bbox_point[2] - one_bbox_point[0];
+			float height = one_bbox_point[3] - one_bbox_point[1];
+			float left_top_x = one_bbox_point[0];
+			float left_top_y = one_bbox_point[1];
+			Rect one_rect(left_top_x, left_top_x, width, height);*/
+
+			cv::rectangle(img_NMS, cv::Point(one_bbox_point[0], one_bbox_point[1]), cv::Point(one_bbox_point[2], one_bbox_point[3]), cv::Scalar(0, 0, 255), 1);
+
+			//rectangle(img, one_rect, Scalar(255, 0, 0), 2);
+		}
+
+		cv::imwrite("result_NMS/" + filename + ".png", img_NMS);
 	}
 }
 
