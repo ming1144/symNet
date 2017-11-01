@@ -20,6 +20,7 @@ public:
 	~symNet();
 	void symSURFDetect(string& root, string& file);
 	void slidingWindowDetect(string& root, string& folder);
+	void singleImage(string&root, string& file);
 	void setROI(int, int);
 	void setStep(int);
 	void setPatch(int, int);
@@ -36,7 +37,7 @@ private:
 	int ROI_height = 140;
 	int ROI_width = 64;
 	int patch_w = 1;
-	int patch_h = 4;
+	int patch_h = 3;
 	int patchNum = patch_w * patch_h;
 	float threshold = 0.7;
 };

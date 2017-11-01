@@ -107,7 +107,16 @@ void symNet::symSURFDetect(string& root, string& file)
 			}
 
 			if (jump)
+			{
+				for (int i = 0; i < patchNum; i++)
+				{
+					delete[] features[i];
+					delete[] features_mirror[i];
+				}
+				delete[] features;
+				delete[] features_mirror;
 				continue;
+			}
 
 			cv::rectangle(drawedImg, ROI, cv::Scalar(0, 0, 255));
 			string filename = list[m].filename;
@@ -124,6 +133,14 @@ void symNet::symSURFDetect(string& root, string& file)
 			temp.score = score;
 
 			boxScores.push_back(temp);
+
+			for (int i = 0; i < patchNum; i++)
+			{
+				delete[] features[i];
+				delete[] features_mirror[i];
+			}
+			delete[] features;
+			delete[] features_mirror;
 		}
 
 		//output << testImages[m] << "," << score * 100 / patchNum << std::endl;
@@ -234,7 +251,7 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 				cv::Mat interest = img(ROI);
 				cv::Mat interest_mirror;
 
-				flip(interest, interest_mirror, 1);
+				cv::flip(interest, interest_mirror, 1);
 
 				int patch_height = interest.rows / patch_h;
 				int patch_width = interest.cols / patch_w;
@@ -278,8 +295,16 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 				}
 
 				if (jump)
+				{
+					for (int i = 0; i < patchNum; i++)
+					{
+						delete[] features[i];
+						delete[] features_mirror[i];
+					}
+					delete[] features;
+					delete[] features_mirror;
 					continue;
-
+				}
 				std::cout << score << std::endl;
 
 				cv::rectangle(drawedImg, ROI, cv::Scalar(0, 0, 255));
@@ -297,6 +322,14 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 				temp.score = score;
 
 				boxScores.push_back(temp);
+
+				for (int i = 0; i < patchNum; i++)
+				{
+					delete[] features[i];
+					delete[] features_mirror[i];
+				}
+				delete[] features;
+				delete[] features_mirror;
 			}
 		}
 
@@ -338,5 +371,59 @@ void symNet::readDirectory(string& root, string& folder)
 			temp.filename = drnt->d_name;
 			list.push_back(temp);
 		}
+	}
+}
+
+void symNet::singleImage(string& root, string& folder)
+{
+	readDirectory(root, folder);
+
+	for (int m = 0; m < list.size(); m++)
+	{
+		cv::Mat img = cv::imread(root + '/' + folder + '/' + list[m].filename);
+		cv::Mat mirror;
+		cv::flip(img, mirror, 1);
+
+		int patch_height = img.rows / patch_h;
+		int patch_width = img.cols / patch_w;
+
+		float** features, **features_mirror;
+
+		features = new float*[patchNum];
+		features_mirror = new float*[patchNum];
+
+		for (int i = 0; i < patchNum; i++)
+		{
+			features[i] = new float[4096];
+			features_mirror[i] = new float[4096];
+		}
+
+		float score = 0;
+
+		for (int i = 0; i < patch_h; i++)
+		{
+			for (int j = 0; j < patch_w; j++)
+			{
+				cv::Rect patch_ROI(0 + j*patch_width, 0 + i*patch_height, patch_width, patch_height);
+				cv::Mat patch = img(patch_ROI);
+				cv::Mat patch_mirror = mirror(patch_ROI);
+
+				extracter.featureExtract(patch, features[i*patch_w + j]);
+				extracter.featureExtract(patch_mirror, features_mirror[i*patch_w + j]);
+
+				score += classifier.featureCompare(features[i*patch_w + j], features_mirror[i*patch_w + j]);
+			}
+			
+		}
+
+		std::cout << score / patchNum << std::endl;
+
+		for (int i = 0; i < patchNum; i++)
+		{
+			delete[] features[i];
+			delete[] features_mirror[i];
+		}
+		delete[] features;
+		delete[] features_mirror;
 	}
 }

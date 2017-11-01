@@ -1,5 +1,3 @@
-#define CPU_ONLY
-
 #include "register.h"
 #include "imageTransform.h"
 #include "symNet.h"
@@ -20,8 +18,6 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-
-#include <QtGui\QImage>
 
 using namespace caffe;  // NOLINT(build/namespaces)
 using namespace cv;
@@ -44,15 +40,19 @@ int main()
 
 	symNet Net(feature_trained_filename, feature_model_filename, classifier_trained_filename, classifier_model_filename);
 
-	_chdir("indoor");
-	string testFolder = "symmetry";
+	//_chdir("indoor");
+	string testFolder = "ToyotaAltis_2010";
 	_chdir(testFolder.c_str());
 
 	string imageFolder = "image";
 
-	string coordinate_filename = "symmeletCoordinate.csv";
+	//string coordinate_filename = "symmeletCoordinate.csv";
 
 	string rootFolder = ".";
+
+	Net.setThreshold(0.9);
+
+	//Net.singleImage(rootFolder, testFolder);
 	Net.slidingWindowDetect(rootFolder, imageFolder);
 	//Net.symSURFDetect(rootFolder, coordinate_filename);
 
