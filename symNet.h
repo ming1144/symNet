@@ -21,10 +21,10 @@ public:
 	void symSURFDetect(string& root, string& file);
 	void slidingWindowDetect(string& root, string& folder);
 	void singleImage(string&root, string& file);
-	void setROI(int, int);
-	void setStep(int);
-	void setPatch(int, int);
-	void setThreshold(float);
+	void setROI(int width, int height);
+	void setStep(int step);
+	void setPatch(int width, int height);
+	void setThreshold(float threshold);
 private:
 	void readSymSURFPair(string& root, string& filename);
 	void readDirectory(string& root, string& folder);

@@ -46,11 +46,13 @@ int main()
 
 	string imageFolder = "image";
 
-	//string coordinate_filename = "symmeletCoordinate.csv";
+	string coordinate_filename = "symmeletCoordinate.csv";
 
 	string rootFolder = ".";
 
-	Net.setThreshold(0.9);
+	Net.setThreshold(0.8);
+	Net.setPatch(1, 3);
+	Net.setStep(5);
 
 	//Net.singleImage(rootFolder, testFolder);
 	Net.slidingWindowDetect(rootFolder, imageFolder);

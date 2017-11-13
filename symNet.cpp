@@ -36,17 +36,20 @@ void symNet::setThreshold(float threshold_new)
 void symNet::symSURFDetect(string& root, string& file)
 {
 	readSymSURFPair(root, file);
+	_mkdir("symmetry");
+	_chdir("symmetry");
 
 	_mkdir("result");
 	_mkdir("result_ROI");
 	_mkdir("result_NMS");
+	_chdir("..");
 	for (int m = 0; m < list.size(); m++)
 	{
 		vector<struct bbox_t> boxScores;
 		int count = 1;
 		std::cout << m + 1 << "/" << list.size() << std::endl;
 
-		cv::Mat img = cv::imread(root + "/image/" + list[m].filename + ".jpg");
+		cv::Mat img = cv::imread(root + "/image/" + list[m].filename + ".bmp");
 		cv::Mat drawedImg = img.clone();
 
 		for (int p = 0; p < list[m].symSURFPairNum; p++)
@@ -123,7 +126,7 @@ void symNet::symSURFDetect(string& root, string& file)
 			filename += "_";
 			filename += std::to_string(count++);
 			filename += ".png";
-			cv::imwrite("result_ROI/" + filename, interest);
+			cv::imwrite("symmetry/result_ROI/" + filename, interest);
 			
 			struct bbox_t temp;
 			temp.Point[0] = center.x - ROI_width / 2;
@@ -144,7 +147,7 @@ void symNet::symSURFDetect(string& root, string& file)
 		}
 
 		//output << testImages[m] << "," << score * 100 / patchNum << std::endl;
-		cv::imwrite("result/" + list[m].filename + ".png", drawedImg);
+		cv::imwrite("symmetry/result/" + list[m].filename + ".png", drawedImg);
 		//output << std::endl;
 
 		boxScores = NMS_bbox(boxScores, 0.7);
@@ -164,7 +167,7 @@ void symNet::symSURFDetect(string& root, string& file)
 			//rectangle(img, one_rect, Scalar(255, 0, 0), 2);
 		}
 
-		cv::imwrite("result_NMS/" + list[m].filename + ".png", img_NMS);
+		cv::imwrite("symmetry/result_NMS/" + list[m].filename + ".png", img_NMS);
 	}
 }
 
@@ -222,10 +225,13 @@ void symNet::readSymSURFPair(string& root, string& filename)
 void symNet::slidingWindowDetect(string& root, string& folder)
 {
 	readDirectory(root, folder);
+	_mkdir("slidingWindow");
+	_chdir("slidingWindow");
 
 	_mkdir("result");
 	_mkdir("result_ROI");
 	_mkdir("result_NMS");
+	_chdir("..");
 	for (int m = 0; m < list.size(); m++)
 	{
 		vector<struct bbox_t> boxScores;
@@ -312,7 +318,7 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 				filename_ROI += "_";
 				filename_ROI += std::to_string(count++);
 				filename_ROI += ".png";
-				imwrite("result_ROI/" + filename_ROI, interest);
+				cv::imwrite("slidingWindow/result_ROI/" + filename_ROI, interest);
 
 				struct bbox_t temp;
 				temp.Point[0] = x - ROI_width / 2;
@@ -333,7 +339,7 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 			}
 		}
 
-		imwrite("result/" + filename + ".png", drawedImg);
+		cv::imwrite("slidingWindow/result/" + filename + ".png", drawedImg);
 
 		boxScores = NMS_bbox(boxScores, 0.7);
 
@@ -352,7 +358,7 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 			//rectangle(img, one_rect, Scalar(255, 0, 0), 2);
 		}
 
-		cv::imwrite("result_NMS/" + filename + ".png", img_NMS);
+		cv::imwrite("slidingWindow/result_NMS/" + filename + ".png", img_NMS);
 	}
 }
 
