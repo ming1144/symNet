@@ -1,37 +1,10 @@
 #include "symNet.h"
 
-symNet::symNet(string& feature_trained_filename, string& feature_model_filename, string& classifier_trained_filename, string& classifier_model_filename)
-{
-	extracter = Extracter::Extracter(feature_trained_filename, feature_model_filename);
-	classifier = Classifier::Classifier(classifier_trained_filename, classifier_model_filename);
-}
-
-symNet::~symNet()
-{
-}
-
-void symNet::setPatch(int width, int height)
-{
-	patch_w = width;
-	patch_h = height;
-	patchNum = width*height;
-}
-
-void symNet::setROI(int width, int height)
-{
-	ROI_width = width;
-	ROI_height = height;
-}
-
-void symNet::setStep(int step_new)
-{
-	step = step_new;
-}
-
-void symNet::setThreshold(float threshold_new)
-{
-	threshold = threshold_new;
-}
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/features2d.hpp>
+#include <opencv2/xfeatures2d.hpp>
 
 void symNet::symSURFDetect(string& root, string& file)
 {
@@ -121,13 +94,15 @@ void symNet::symSURFDetect(string& root, string& file)
 				continue;
 			}
 
-			cv::rectangle(drawedImg, ROI, cv::Scalar(0, 0, 255));
-			string filename = list[m].filename;
-			filename += "_";
-			filename += std::to_string(count++);
-			filename += ".png";
-			cv::imwrite("symmetry/result_ROI/" + filename, interest);
-			
+			if (createROI)
+			{
+				cv::rectangle(drawedImg, ROI, cv::Scalar(0, 0, 255));
+				string filename = list[m].filename;
+				filename += "_";
+				filename += std::to_string(count++);
+				filename += ".png";
+				cv::imwrite("symmetry/result_ROI/" + filename, interest);
+			}
 			struct bbox_t temp;
 			temp.Point[0] = center.x - ROI_width / 2;
 			temp.Point[1] = center.y - ROI_height / 2;
@@ -150,24 +125,27 @@ void symNet::symSURFDetect(string& root, string& file)
 		cv::imwrite("symmetry/result/" + list[m].filename + ".png", drawedImg);
 		//output << std::endl;
 
-		boxScores = NMS_bbox(boxScores, 0.7);
-
-		cv::Mat img_NMS = img.clone();
-		for (int i = 0; i < boxScores.size(); i++)
+		if (useNMS)
 		{
-			const float *one_bbox_point = boxScores[i].Point;
-			/*float width = one_bbox_point[2] - one_bbox_point[0];
-			float height = one_bbox_point[3] - one_bbox_point[1];
-			float left_top_x = one_bbox_point[0];
-			float left_top_y = one_bbox_point[1];
-			Rect one_rect(left_top_x, left_top_x, width, height);*/
+			boxScores = NMS_bbox(boxScores, 0.7);
 
-			cv::rectangle(img_NMS, cv::Point(one_bbox_point[0], one_bbox_point[1]), cv::Point(one_bbox_point[2], one_bbox_point[3]), cv::Scalar(0, 0, 255), 1);
+			cv::Mat img_NMS = img.clone();
+			for (int i = 0; i < boxScores.size(); i++)
+			{
+				const float *one_bbox_point = boxScores[i].Point;
+				/*float width = one_bbox_point[2] - one_bbox_point[0];
+				float height = one_bbox_point[3] - one_bbox_point[1];
+				float left_top_x = one_bbox_point[0];
+				float left_top_y = one_bbox_point[1];
+				Rect one_rect(left_top_x, left_top_x, width, height);*/
 
-			//rectangle(img, one_rect, Scalar(255, 0, 0), 2);
+				cv::rectangle(img_NMS, cv::Point(one_bbox_point[0], one_bbox_point[1]), cv::Point(one_bbox_point[2], one_bbox_point[3]), cv::Scalar(0, 0, 255), 1);
+
+				//rectangle(img, one_rect, Scalar(255, 0, 0), 2);
+			}
+
+			cv::imwrite("symmetry/result_NMS/" + list[m].filename + ".png", img_NMS);
 		}
-
-		cv::imwrite("symmetry/result_NMS/" + list[m].filename + ".png", img_NMS);
 	}
 }
 
@@ -229,8 +207,10 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 	_chdir("slidingWindow");
 
 	_mkdir("result");
-	_mkdir("result_ROI");
-	_mkdir("result_NMS");
+	if ( createROI)
+		_mkdir("result_ROI");
+	if ( useNMS)
+		_mkdir("result_NMS");
 	_chdir("..");
 	for (int m = 0; m < list.size(); m++)
 	{
@@ -240,6 +220,84 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 
 		cv::Mat img = cv::imread(root + "/" + folder + "/" + list[m].filename);
 		cv::Mat drawedImg = img.clone();
+
+		cv::Mat gray;
+		cv::cvtColor(img, gray, CV_BGR2GRAY);
+		cv::Mat grad_x, grad_y;
+		cv::Mat abs_grad_x, abs_grad_y;
+		cv::Sobel(gray, grad_x, CV_16S, 1, 0, 3, 1, 0, cv::BORDER_DEFAULT);
+		cv::convertScaleAbs(grad_x, abs_grad_x);  //Âà¦¨CV_8U
+		cv::Sobel(gray, grad_y, CV_16S, 0, 1, 3, 1, 0, cv::BORDER_DEFAULT);
+		cv::convertScaleAbs(grad_y, abs_grad_y);
+		
+
+		cv::Mat dst1, dst2;
+		cv::addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, dst1);
+		cv::threshold(dst1, dst2, 128, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+
+		int* integralImage;
+		integralImage = new int[img.rows*img.cols];
+		memset(integralImage, 0, sizeof(int)*img.rows*img.cols);
+
+		/*cv::Ptr<cv::xfeatures2d::SURF> surf;
+
+		surf = cv::xfeatures2d::SURF::create(800);
+		std::vector<cv::KeyPoint> keyPoint;
+		cv::Mat surfFeature;
+
+		surf->detectAndCompute(gray, cv::Mat(), keyPoint, surfFeature);
+
+		int* SURFIntegralImage;
+		SURFIntegralImage = new int[img.rows*img.cols];
+		memset(SURFIntegralImage, 0, sizeof(int)*img.rows*img.cols);
+
+		for (int i = 0; i < keyPoint.size(); i++)
+		{
+			SURFIntegralImage[int(keyPoint[i].pt.y)*img.cols + int(keyPoint[i].pt.x)] = 1;
+		}*/
+
+		uchar* p_edge = dst2.ptr<uchar>();
+		for (int y = 0; y < img.rows; y++, p_edge += dst2.step)
+		{
+			for (int x = 0; x < img.cols; x++)
+			{
+				if (p_edge[x] == 255)
+				{
+					integralImage[y*img.cols + x] = 1;
+				}
+
+				if (x == 0 && y == 0)
+				{
+					continue;
+				}
+
+				else if (y == 0)
+				{
+					integralImage[x] += integralImage[x - 1];
+
+					//SURFIntegralImage[x] += SURFIntegralImage[x - 1];
+				}
+				else if (x == 0)
+				{
+					integralImage[y*img.cols] += integralImage[(y - 1)*img.cols];
+
+					//SURFIntegralImage[y*img.cols] += SURFIntegralImage[(y - 1)*img.cols];
+				}
+				else
+				{
+					integralImage[y*img.cols + x] -= integralImage[(y - 1)*img.cols + x - 1];
+					integralImage[y*img.cols + x] += integralImage[(y - 1)*img.cols + x];
+					integralImage[y*img.cols + x] += integralImage[(y)*img.cols + x - 1];
+
+					//SURFIntegralImage[y*img.cols + x] -= SURFIntegralImage[(y - 1)*img.cols + x - 1];
+					//SURFIntegralImage[y*img.cols + x] += SURFIntegralImage[(y - 1)*img.cols + x];
+					//SURFIntegralImage[y*img.cols + x] += SURFIntegralImage[(y)*img.cols + x - 1];
+				}
+			}
+		}
+		
+		
+
 
 		string filename = list[m].filename.substr(0, list[m].filename.size() - 4);
 		for (int y = 0; y < img.rows; y += step)
@@ -252,6 +310,18 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 				}
 
 				std::cout << x << "," << y << std::endl;
+
+				int edgeNum;
+				edgeNum = integralImage[(y + ROI_height / 2)*img.cols + x + ROI_width / 2];
+				edgeNum += integralImage[(y - ROI_height / 2 - 1)*img.cols + x - ROI_width / 2 - 1];
+				edgeNum -= integralImage[(y + ROI_height / 2)*img.cols + x - ROI_width / 2 - 1];
+				edgeNum -= integralImage[(y - ROI_height / 2 - 1)*img.cols + x + ROI_width / 2];
+
+				if (edgeNum < ROI_width * ROI_height * 0.3)
+				{
+					continue;
+				}
+
 				cv::Rect ROI(cv::Point(x - ROI_width / 2, y - ROI_height / 2), cv::Point(x + ROI_width / 2, y + ROI_height / 2));
 
 				cv::Mat interest = img(ROI);
@@ -271,7 +341,7 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 				{
 					features[i] = new float[4096];
 					features_mirror[i] = new float[4096];
-				}
+				}	
 
 				float score = 0;
 
@@ -311,23 +381,42 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 					delete[] features_mirror;
 					continue;
 				}
-				std::cout << score << std::endl;
+				//matchNet Score
+				//std::cout << score << std::endl;
+				
+				/*int SURFNum;
+				SURFNum = SURFIntegralImage[(y + ROI_height / 2)*img.cols + x + ROI_width / 2];
+				SURFNum += SURFIntegralImage[(y - ROI_height / 2 - 1)*img.cols + x - ROI_width / 2 - 1];
+				SURFNum -= SURFIntegralImage[(y + ROI_height / 2)*img.cols + x - ROI_width / 2 - 1];
+				SURFNum -= SURFIntegralImage[(y - ROI_height / 2 - 1)*img.cols + x + ROI_width / 2];
 
+				if (SURFNum < 10)
+				{
+					continue;
+				}*/
+				
 				cv::rectangle(drawedImg, ROI, cv::Scalar(0, 0, 255));
-				string filename_ROI = filename;
-				filename_ROI += "_";
-				filename_ROI += std::to_string(count++);
-				filename_ROI += ".png";
-				cv::imwrite("slidingWindow/result_ROI/" + filename_ROI, interest);
+				if (createROI)
+				{	
+					string filename_ROI = filename;
+					filename_ROI += "_";
+					filename_ROI += std::to_string(count++);
+					filename_ROI += ".png";
+					cv::imwrite("slidingWindow/result_ROI/" + filename_ROI, interest);
+				}
 
-				struct bbox_t temp;
-				temp.Point[0] = x - ROI_width / 2;
-				temp.Point[1] = y - ROI_height / 2;
-				temp.Point[2] = x + ROI_width / 2;
-				temp.Point[3] = y + ROI_height / 2;
-				temp.score = score;
+				if (useNMS)
+				{
+					struct bbox_t temp;
+					temp.Point[0] = x - ROI_width / 2;
+					temp.Point[1] = y - ROI_height / 2;
+					temp.Point[2] = x + ROI_width / 2;
+					temp.Point[3] = y + ROI_height / 2;
+					temp.score = score;
 
-				boxScores.push_back(temp);
+					boxScores.push_back(temp);
+				}
+
 
 				for (int i = 0; i < patchNum; i++)
 				{
@@ -336,6 +425,7 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 				}
 				delete[] features;
 				delete[] features_mirror;
+				
 			}
 		}
 
@@ -343,22 +433,27 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 
 		boxScores = NMS_bbox(boxScores, 0.7);
 
-		cv::Mat img_NMS = img.clone();
-		for (int i = 0; i < boxScores.size(); i++)
+		if (useNMS)
 		{
-			const float *one_bbox_point = boxScores[i].Point;
-			/*float width = one_bbox_point[2] - one_bbox_point[0];
-			float height = one_bbox_point[3] - one_bbox_point[1];
-			float left_top_x = one_bbox_point[0];
-			float left_top_y = one_bbox_point[1];
-			Rect one_rect(left_top_x, left_top_x, width, height);*/
+			cv::Mat img_NMS = img.clone();
+			for (int i = 0; i < boxScores.size(); i++)
+			{
+				const float *one_bbox_point = boxScores[i].Point;
+				/*float width = one_bbox_point[2] - one_bbox_point[0];
+				float height = one_bbox_point[3] - one_bbox_point[1];
+				float left_top_x = one_bbox_point[0];
+				float left_top_y = one_bbox_point[1];
+				Rect one_rect(left_top_x, left_top_x, width, height);*/
 
-			cv::rectangle(img_NMS, cv::Point(one_bbox_point[0], one_bbox_point[1]), cv::Point(one_bbox_point[2], one_bbox_point[3]), cv::Scalar(0, 0, 255), 1);
+				cv::rectangle(img_NMS, cv::Point(one_bbox_point[0], one_bbox_point[1]), cv::Point(one_bbox_point[2], one_bbox_point[3]), cv::Scalar(0, 0, 255), 1);
 
-			//rectangle(img, one_rect, Scalar(255, 0, 0), 2);
+				//rectangle(img, one_rect, Scalar(255, 0, 0), 2);
+			}
+
+			cv::imwrite("slidingWindow/result_NMS/" + filename + ".png", img_NMS);
 		}
 
-		cv::imwrite("slidingWindow/result_NMS/" + filename + ".png", img_NMS);
+		delete[] integralImage;
 	}
 }
 

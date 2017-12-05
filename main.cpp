@@ -51,8 +51,10 @@ int main()
 	string rootFolder = ".";
 
 	Net.setThreshold(0.8);
-	Net.setPatch(1, 3);
+	Net.setPatch(3, 2);
+	Net.setROI(140, 80);
 	Net.setStep(5);
+	Net.CreateROI(true);
 
 	//Net.singleImage(rootFolder, testFolder);
 	Net.slidingWindowDetect(rootFolder, imageFolder);
