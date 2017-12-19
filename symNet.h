@@ -1,3 +1,5 @@
+#define CPU_ONLY
+
 #include "classifier.h"
 #include "extracter.h"
 #include "NMS.h"
@@ -45,9 +47,10 @@ public:
 		ROI_width = width;
 		ROI_height = height;
 	};
-	void setStep(int step_new)
+	void setStep(int step_w_new, int step_h_new)
 	{
-		step = step_new;
+		step_w = step_w_new;
+		step_h = step_h_new;
 	};
 	void setPatch(int width, int height)
 	{
@@ -83,7 +86,8 @@ private:
 
 	string modelDate;
 
-	int step = 20;
+	int step_h = 5;
+	int step_w = 5;
 	int ROI_height = 140;
 	int ROI_width = 64;
 	int patch_w = 1;
