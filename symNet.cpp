@@ -6,7 +6,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/features2d.hpp>
-#include <opencv2/xfeatures2d.hpp>
+//#include <opencv2/xfeatures2d.hpp>
 
 void symNet::symSURFDetect(string& root, string& file)
 {
@@ -298,9 +298,9 @@ void symNet::slidingWindowDetect(string& root, string& folder)
 
 
 		string filename = list[m].filename.substr(0, list[m].filename.size() - 4);
-		for (int y = 0; y < img.rows; y += step)
+		for (int y = 0; y < img.rows; y += step_h)
 		{
-			for (int x = 0; x < img.cols; x += step)
+			for (int x = 0; x < img.cols; x += step_w)
 			{
 				if (x - ROI_width / 2 < 0 || y - ROI_height / 2 < 0 || x + ROI_width / 2 > img.cols || y + ROI_height / 2 > img.rows)
 				{
@@ -587,9 +587,9 @@ void symNet::singleImage(string& root, string& imagePath)
 	_chdir(filename.c_str());
 	_mkdir("ROI");
 	_chdir("..");
-	for (int y = 0; y < img.rows; y += step)
+	for (int y = 0; y < img.rows; y += step_h)
 	{
-		for (int x = 0; x < img.cols; x += step)
+		for (int x = 0; x < img.cols; x += step_w)
 		{
 			if (x - ROI_width / 2 < 0 || y - ROI_height / 2 < 0 || x + ROI_width / 2 > img.cols || y + ROI_height / 2 > img.rows)
 			{
@@ -719,14 +719,11 @@ void symNet::singleImage(string& root, string& imagePath)
 			}
 
 			cv::rectangle(drawedImg, ROI, cv::Scalar(0, 0, 255));
-			if (createROI)
-			{
-				string filename_ROI = filename;
-				filename_ROI += "_";
-				filename_ROI += std::to_string(count++);
-				filename_ROI += ".png";
-				cv::imwrite(filename + "/ROI/" + filename_ROI, interest);
-			}
+			string filename_ROI = filename;
+			filename_ROI += "_";
+			filename_ROI += std::to_string(count++);
+			filename_ROI += ".png";
+			cv::imwrite(filename + "/ROI/" + filename_ROI, interest);
 
 			if (useNMS)
 			{
@@ -779,20 +776,271 @@ void symNet::singleImage(string& root, string& imagePath)
 		img_NMS.release();
 	}
 
-	vector<bbox_t> updateBoxess;
-	for (int i = 0; i < boxScores.size(); i++)
+	int times = 0, i, j;
+    vector<bbox_t> updateBoxes;
+	bool* used;
+	do
 	{
-		int border_x_min, border_x_max, border_y_min, border_y_max;
+		times = 0;
+		used = new bool[boxScores.size()];
+		memset(used, 0, sizeof(bool)*boxScores.size());
 
-		border_x_min = boxScores[i].Point[0];
-		border_y_min = boxScores[i].Point[1];
-		border_y_max = boxScores[i].Point[2];
-		border_y_max = boxScores[i].Point[3];
-		for (int j = i; j < boxScores.size(); j++)
+		for (i = 0; i < boxScores.size(); i++)
 		{
-			
+			if (used[i])
+				continue;
+			for (j = i + 1; j < boxScores.size(); j++)
+			{
+				if (used[j])
+					continue;
+
+				int border_x_min, border_x_max, border_y_min, border_y_max;
+
+				border_x_min = boxScores[i].Point[0];
+				border_y_min = boxScores[i].Point[1];
+				border_x_max = boxScores[i].Point[2];
+				border_y_max = boxScores[i].Point[3];
+
+				int pos;
+
+				cv::Point leftAbove, leftBelow, rightAbove, rightBelow;
+
+				leftBelow.x = boxScores[j].Point[0];
+				leftBelow.y = boxScores[j].Point[1];
+				leftAbove.x = boxScores[j].Point[0];
+				leftAbove.y = boxScores[j].Point[3];
+				rightBelow.x = boxScores[j].Point[2];
+				rightBelow.y = boxScores[j].Point[1];
+				rightAbove.x = boxScores[j].Point[2];
+				rightAbove.y = boxScores[j].Point[3];
+
+				if (leftBelow.x >= border_x_min && leftBelow.x <= border_x_max && leftBelow.y >= border_y_min && leftBelow.y <= border_y_max)
+				{
+					pos = 1;
+				}
+				else if (leftAbove.x >= border_x_min && leftAbove.x <= border_x_max && leftAbove.y >= border_y_min && leftAbove.y <= border_y_max)
+				{
+					pos = 2;
+				}
+				else if (rightBelow.x >= border_x_min && rightBelow.x <= border_x_max && rightBelow.y >= border_y_min && rightBelow.y <= border_y_max)
+				{
+					pos = 3;
+				}
+				else if (rightAbove.x >= border_x_min && rightAbove.x <= border_x_max && rightAbove.y >= border_y_min && rightAbove.y <= border_y_max)
+				{
+					pos = 4;
+				}
+				else
+				{
+					continue;
+				}
+
+				cv::Point newLeftBelow, newRightAbove;
+				switch (pos)
+				{
+				case 1:
+					newLeftBelow.x = boxScores[i].Point[0];
+					newLeftBelow.y = boxScores[i].Point[1];
+					newRightAbove.x = boxScores[j].Point[2];
+					newRightAbove.y = boxScores[j].Point[3];
+					break;
+				case 2:
+					newLeftBelow.x = boxScores[i].Point[0];
+					newLeftBelow.y = boxScores[j].Point[1];
+					newRightAbove.x = boxScores[j].Point[2];
+					newRightAbove.y = boxScores[i].Point[3];
+					break;
+				case 3:
+					newLeftBelow.x = boxScores[j].Point[0];
+					newLeftBelow.y = boxScores[i].Point[1];
+					newRightAbove.x = boxScores[i].Point[2];
+					newRightAbove.y = boxScores[j].Point[3];
+					break;
+				case 4:
+					newLeftBelow.x = boxScores[j].Point[0];
+					newLeftBelow.y = boxScores[j].Point[1];
+					newRightAbove.x = boxScores[i].Point[2];
+					newRightAbove.y = boxScores[i].Point[3];
+					break;
+				}
+
+				int edgenum;
+				edgenum = integralImage[newRightAbove.y*img.cols + newRightAbove.x];
+				edgenum += integralImage[(newLeftBelow.y - 1)*img.cols + newLeftBelow.x - 1];
+				edgenum -= integralImage[newRightAbove.y*img.cols + newLeftBelow.x - 1];
+				edgenum -= integralImage[(newLeftBelow.y - 1)*img.cols + newRightAbove.x];
+
+				if (edgenum < (newRightAbove.x - newLeftBelow.x) * (newRightAbove.y - newLeftBelow.y) * 0.3)
+				{
+					continue;
+				}
+
+				cv::Rect ROI(newLeftBelow, newRightAbove);
+
+				cv::Mat interest = img(ROI);
+				cv::Mat interest_mirror;
+
+				cv::flip(interest, interest_mirror, 1);
+
+				
+
+				int new_patch_w = ROI.width / ROI_width;
+				if (ROI.width % ROI_width >= ROI_width/2)
+					new_patch_w++;
+				int new_patch_h = ROI.height / ROI_height;
+				if (ROI.height % ROI_height >= ROI_height/2)
+					new_patch_h++;
+
+				int new_patch_width = ROI.width / new_patch_w;
+				int new_patch_height = ROI.height / new_patch_h;
+				int new_patchNum = new_patch_w * new_patch_h;
+				
+				float** features, **features_mirror;
+
+				features = new float*[new_patchNum];
+				features_mirror = new float*[new_patchNum];
+
+				for (int i = 0; i < new_patchNum; i++)
+				{
+					features[i] = new float[4096];
+					features_mirror[i] = new float[4096];
+				}
+
+				float score = 0;
+
+				bool jump = false;
+
+				for (int i = 0; i < new_patch_h; i++)
+				{
+					for (int j = 0; j < new_patch_w; j++)
+					{
+						cv::Rect patch_ROI(0 + j*new_patch_width, 0 + i*new_patch_height, new_patch_width, new_patch_height);
+						cv::Mat patch = interest(patch_ROI);
+						cv::Mat patch_mirror = interest_mirror(patch_ROI);
+
+						extracter.featureExtract(patch, features[i*new_patch_w + j]);
+						extracter.featureExtract(patch_mirror, features_mirror[i*new_patch_w + j]);
+
+						score += classifier.featureCompare(features[i*new_patch_w + j], features_mirror[i*new_patch_w + j]);
+
+						if (score + new_patch_h*new_patch_w - i*new_patch_w + j - 1 < threshold * new_patchNum)
+						{
+							jump = true;
+							patch.release();
+							patch_mirror.release();
+							break;
+						}
+
+						patch.release();
+						patch_mirror.release();
+					}
+					if (jump)
+						break;
+				}
+
+				if (jump)
+				{
+					for (int i = 0; i < new_patchNum; i++)
+					{
+						delete[] features[i];
+						delete[] features_mirror[i];
+					}
+					delete[] features;
+					delete[] features_mirror;
+					interest.release();
+					interest_mirror.release();
+					continue;
+				}
+				//matchNet Score
+				//std::cout << score << std::endl;
+
+				if (!onlyMatchNet)
+				{
+					//SymNet
+					std::vector<Prediction> predict = symClassifier.Classify(interest);
+
+					if (!useCrossEntropy)
+					{
+						if (predict[0].first != "1")
+						{
+							for (int i = 0; i < new_patchNum; i++)
+							{
+								delete[] features[i];
+								delete[] features_mirror[i];
+							}
+							delete[] features;
+							delete[] features_mirror;
+							interest.release();
+							interest_mirror.release();
+							continue;
+						}
+					}
+					else
+					{
+						if (predict[0].second >= CrossEntropyThreshold)
+						{
+							for (int i = 0; i < new_patchNum; i++)
+							{
+								delete[] features[i];
+								delete[] features_mirror[i];
+							}
+							delete[] features;
+							delete[] features_mirror;
+							interest.release();
+							interest_mirror.release();
+							continue;
+						}
+					}
+				}
+
+				bbox_t temp;
+				temp.score = score;
+				temp.Point[0] = newLeftBelow.x;
+				temp.Point[1] = newLeftBelow.y;
+				temp.Point[2] = newRightAbove.x;
+				temp.Point[3] = newRightAbove.y;
+				updateBoxes.push_back(temp);
+
+				used[j] = true;
+				times++;
+				break;
+			}
+			if (j != boxScores.size())
+				used[i] = true;
+
 		}
+
+		for (i = 0; i < boxScores.size(); i++)
+		{
+			if (!used[i])
+			{
+				updateBoxes.push_back(boxScores[i]);
+			}
+		}
+
+		boxScores.clear();
+		boxScores = updateBoxes;
+		updateBoxes.clear();
+		delete used;
+	} while (times != 0);
+
+	_chdir(filename.c_str());
+	_mkdir("2");
+	_chdir("..");
+	
+	cv::Mat drawedImg2 = img.clone();
+	boxScores = NMS_bbox(boxScores, NMSThreshold);
+	for (i = 0; i < boxScores.size(); i++)
+	{
+		const float *one_bbox_point = boxScores[i].Point;
+		cv::Rect temp(cv::Point(one_bbox_point[0], one_bbox_point[1]), cv::Point(one_bbox_point[2], one_bbox_point[3]));
+		cv::Mat tempMat = img(temp);
+		cv::imwrite(filename + "/2/" + filename + "_" + to_string(i) +".png", tempMat);
+
+		cv::rectangle(drawedImg2, temp, cv::Scalar(0, 0, 255), 1);
 	}
+	cv::imwrite(filename + "/" + filename + "_2.png", drawedImg2);
+	drawedImg2.release();
 
 	delete[] integralImage;
 	img.release();
