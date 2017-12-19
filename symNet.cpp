@@ -779,7 +779,20 @@ void symNet::singleImage(string& root, string& imagePath)
 		img_NMS.release();
 	}
 
+	vector<bbox_t> updateBoxess;
+	for (int i = 0; i < boxScores.size(); i++)
+	{
+		int border_x_min, border_x_max, border_y_min, border_y_max;
 
+		border_x_min = boxScores[i].Point[0];
+		border_y_min = boxScores[i].Point[1];
+		border_y_max = boxScores[i].Point[2];
+		border_y_max = boxScores[i].Point[3];
+		for (int j = i; j < boxScores.size(); j++)
+		{
+			
+		}
+	}
 
 	delete[] integralImage;
 	img.release();

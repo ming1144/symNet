@@ -31,8 +31,8 @@ int main()
 	_chdir("MatchNet");
 
 	string modelFolder = "models";
-	string modelDate = "20171211";
-	bool crossEntropy = true;
+	string modelDate = "20171219";
+	bool crossEntropy = false;
 
 	string feature_trained_filename = modelFolder + "/feature_net.pbtxt";
 	string feature_model_filename = modelFolder + "/liberty_r_0.01_m_0.feature_net.pb";
@@ -66,22 +66,22 @@ int main()
 	_chdir(testFolder.c_str());
 
 	string imageFolder = "image";
-
-	string coordinate_filename = "symmeletCoordinate.csv";
-
 	string rootFolder = ".";
 
 	Net.setThreshold(0.8);
-	Net.setPatch(1, 1);
-	Net.setROI(64, 64);
+	Net.setPatch(2, 3);
+	Net.setROI(140, 80);
 	Net.setStep(5);
-	Net.CreateROI(true);
-	Net.UseCrossEntropy(true);
+	//Net.CreateROI(true);
+	if ( crossEntropy)
+		Net.UseCrossEntropy(true);
 
-	string testImage = "1.bmp";
-	Net.singleImage(imageFolder, testImage);
+	//string testImage = "1.bmp";
+	//Net.singleImage(imageFolder, testImage);
 
-	//Net.slidingWindowDetect(rootFolder, imageFolder);
+	Net.slidingWindowDetect(rootFolder, imageFolder);
+
+    //string coordinate_filename = "symmeletCoordinate.csv";
 	//Net.symSURFDetect(rootFolder, coordinate_filename);
 
 	return 0;
