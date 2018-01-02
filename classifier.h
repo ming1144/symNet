@@ -2,7 +2,6 @@
 #include <string>
 #include <vector>
 
-
 #include <caffe\caffe.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>

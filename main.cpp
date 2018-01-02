@@ -58,28 +58,35 @@ int main()
 
 	symNet Net(feature_trained_filename, feature_model_filename,
 		classifier_trained_filename, classifier_model_filename,
-		symClassifier_trained_filename, symClassifier_model_filename, symClassifier_label_filename,
+		//symClassifier_trained_filename, symClassifier_model_filename, symClassifier_label_filename,
 		modelDate);
 
-	//_chdir("indoor");
+	//string testFolder = "indoor";
 	string testFolder = "ToyotaAltis_2010";
 	_chdir(testFolder.c_str());
 
-	string imageFolder = "image";
+
+
+	string imageFolder = "nonSymmetry";
 	string rootFolder = ".";
 
 	Net.setThreshold(0.8);
-	Net.setPatch(2, 3);
+	/*Net.setPatch(3, 2);
 	Net.setROI(140, 80);
-	Net.setStep(5);
+	Net.setStep(5, 10);*/
+
+	Net.setPatch(1, 1);
+	Net.setROI(64, 64);
+	Net.setStep(5, 10);
 	//Net.CreateROI(true);
 	if ( crossEntropy)
 		Net.UseCrossEntropy(true);
 
-	//string testImage = "1.bmp";
-	//Net.singleImage(imageFolder, testImage);
+	string testImage = "48.jpg";
+	imageFolder = ".";
+	Net.singleImage(imageFolder, testImage);
 
-	Net.slidingWindowDetect(rootFolder, imageFolder);
+	//Net.slidingWindowDetect(rootFolder, imageFolder);
 
     //string coordinate_filename = "symmeletCoordinate.csv";
 	//Net.symSURFDetect(rootFolder, coordinate_filename);

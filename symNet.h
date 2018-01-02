@@ -1,5 +1,3 @@
-#define CPU_ONLY
-
 #include "classifier.h"
 #include "extracter.h"
 #include "NMS.h"
