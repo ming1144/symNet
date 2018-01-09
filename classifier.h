@@ -1,3 +1,5 @@
+#define CPU_ONLY
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -29,6 +31,12 @@ public:
 		const string& label_file);
 
 	Classifier(const string& model_file,
+		const string& trained_file,
+		const string& label_file,
+		vector<int> mean_value,
+		float t_variance);
+
+	Classifier(const string& model_file,
 		const string& trained_file);
 
 	std::vector<Prediction> Classify(const cv::Mat& img, int N = 5);
@@ -49,7 +57,10 @@ private:
 	cv::Size input_geometry_;
 	int num_channels_;
 	cv::Mat mean_;
-	bool useMean;
+	int* meanValue;
+	float variance;
+	bool imageMean;
+	bool pixelMean;
 	std::vector<string> labels_;
 	bool useLabel;
 };

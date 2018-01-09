@@ -19,6 +19,7 @@ Classifier::Classifier(const string& model_file,
 	net_.reset(new Net<float>(model_file, TEST));
 	net_->CopyTrainedLayersFrom(trained_file);
 
+
 	CHECK_EQ(net_->num_inputs(), 1) << "Network should have exactly one input.";
 	CHECK_EQ(net_->num_outputs(), 1) << "Network should have exactly one output.";
 
@@ -31,7 +32,8 @@ Classifier::Classifier(const string& model_file,
 
 	/* Load the binaryproto mean file. */
 	SetMean(mean_file);
-	useMean = true;
+	imageMean = true;
+	pixelMean = false;
 
 	/* Load labels. */
 	std::ifstream labels(label_file.c_str());
@@ -68,7 +70,49 @@ Classifier::Classifier(const string& model_file,
 		<< "Input layer should have 1 or 3 channels.";
 	input_geometry_ = cv::Size(input_layer->width(), input_layer->height());
 
-	useMean = false;
+	imageMean = false;
+	pixelMean = false;
+
+	/* Load labels. */
+	std::ifstream labels(label_file.c_str());
+	CHECK(labels) << "Unable to open labels file " << label_file;
+	string line;
+	while (std::getline(labels, line))
+		labels_.push_back(string(line));
+
+	Blob<float>* output_layer = net_->output_blobs()[0];
+	CHECK_EQ(labels_.size(), output_layer->channels())
+		<< "Number of labels is different from the output layer dimension.";
+}
+
+Classifier::Classifier(const string& model_file, const string& trained_file, const string& label_file, vector<int> mean_value, float t_variance)
+{
+#ifdef CPU_ONLY
+	Caffe::set_mode(Caffe::CPU);
+#else
+	Caffe::set_mode(Caffe::GPU);
+#endif
+	//std::cout << model_file << std::endl << trained_file << std::endl;
+	/* Load the network. */
+	net_.reset(new Net<float>(model_file, TEST));
+	net_->CopyTrainedLayersFrom(trained_file);
+
+	CHECK_EQ(net_->num_inputs(), 1) << "Network should have exactly one input.";
+	CHECK_EQ(net_->num_outputs(), 1) << "Network should have exactly one output.";
+
+	Blob<float>* input_layer = net_->input_blobs()[0];
+	num_channels_ = input_layer->channels();
+
+	CHECK(num_channels_ == 3 || num_channels_ == 1)
+		<< "Input layer should have 1 or 3 channels.";
+	input_geometry_ = cv::Size(input_layer->width(), input_layer->height());
+
+	meanValue = new int[mean_value.size()];
+	for (int c = 0; c < mean_value.size(); c++)
+	{
+		meanValue[c] = mean_value[c];
+	}
+	variance = t_variance;
 
 	/* Load labels. */
 	std::ifstream labels(label_file.c_str());
@@ -100,7 +144,8 @@ Classifier::Classifier(const string& model_file,
 	Blob<float>* input_layer = net_->input_blobs()[0];
 	num_channels_ = input_layer->channels();
 
-	useMean = false;
+	imageMean = false;
+	pixelMean = false;
 
 	useLabel = false;
 
@@ -196,8 +241,8 @@ void Classifier::SetMean(const string& mean_file) {
 
 std::vector<float> Classifier::Predict(const cv::Mat& img) {
 	Blob<float>* input_layer = net_->input_blobs()[0];
-	input_layer->Reshape(1, num_channels_,
-		input_geometry_.height, input_geometry_.width);
+	input_layer->Reshape(1, img.channels(),
+		img.rows, img.cols);
 	/* Forward dimension change to all layers. */
 	net_->Reshape();
 
@@ -248,21 +293,40 @@ void Classifier::Preprocess(const cv::Mat& img,
 	else
 		sample = img;
 
-	cv::Mat sample_resized;
+	/*cv::Mat sample_resized;
 	if (sample.size() != input_geometry_)
 		cv::resize(sample, sample_resized, input_geometry_);
 	else
-		sample_resized = sample;
+		sample_resized = sample;*/
 
 	cv::Mat sample_float;
 	if (num_channels_ == 3)
-		sample_resized.convertTo(sample_float, CV_32FC3);
+		sample.convertTo(sample_float, CV_32FC3);
+		//sample_resized.convertTo(sample_float, CV_32FC3);
 	else
-		sample_resized.convertTo(sample_float, CV_32FC1);
+		sample.convertTo(sample_float, CV_32FC1);
+		//sample_resized.convertTo(sample_float, CV_32FC1);
 
 	cv::Mat sample_normalized;
-	if (useMean)
+	if (imageMean)
 		cv::subtract(sample_float, mean_, sample_normalized);
+	else if (pixelMean)
+	{
+		for (int i = 0; i < img.rows; i++)
+		{
+			for (int j = 0; j < img.cols; j++)
+			{
+
+				cv::Vec3f temp = sample_float.at<cv::Vec3f>(i, j);
+				temp[0] -= meanValue[0];
+				temp[1] -= meanValue[1];
+				temp[2] -= meanValue[2];
+				sample_float.at<cv::Vec3f>(i, j) = temp;
+			}
+		}
+		sample_float /= variance;
+		sample_normalized = sample_float;
+	}
 	else
 		sample_normalized = sample_float;
 

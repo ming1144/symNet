@@ -1,3 +1,5 @@
+#define CPU_ONLY
+
 #include <iostream>
 #include <string>
 #include <vector>
